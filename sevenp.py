@@ -69,9 +69,12 @@ while ch != '\033':
 			result = bio.read().decode("utf-8").rstrip()
 			pyperclip.copy(result)
 		break
-	s = s + ch
+	elif ch == '\b':
+		s = s[:-1]
+	else:
+		s = s + ch
 	matches = textsContain(s, filenames)
-	sys.stdout.write("{}\n\n".format(s))
+	sys.stdout.write("{:40s}\n\n".format(s))
 	for m in range(8):
 		if m < len(matches):
 			match = matches[m]
