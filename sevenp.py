@@ -1,10 +1,10 @@
-import sys
-import pathlib
-import py7zr
+from sys import argv, stdin, stdout
+from pathlib import Path
+from py7zr import SevenZipFile
 from getpass import getpass
 import pyperclip
 
-archiveFP = pathlib.Path(sys.argv[1]).expanduser()
+archiveFP = Path(argv[1]).expanduser()
 
 def textsContain(inp, texts):
 	outs = []
@@ -12,6 +12,10 @@ def textsContain(inp, texts):
 		if inp in text:
 			outs.append(text)
 	return outs
+
+def clearScreen():
+	for i in range(10):
+		stdout.write("{:40s}\n".format(''))
 
 class _Getch:
     """Gets a single character from standard input.  Does not echo to the
@@ -30,11 +34,11 @@ class _GetchUnix:
 
     def __call__(self):
         import sys, tty, termios
-        fd = sys.stdin.fileno()
+        fd = stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
-            tty.setraw(sys.stdin.fileno())
-            ch = sys.stdin.read(1)
+            tty.setraw(stdin.fileno())
+            ch = stdin.read(1)
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
@@ -50,36 +54,80 @@ class _GetchWindows:
 getch = _Getch()
 
 archivePassword = getpass('password: ')
-archive7z = py7zr.SevenZipFile(archiveFP, mode='r', password=archivePassword)
+archive7z = None
+while not archive7z:
+	try:
+		archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
+	except:
+		print('incorrect password')
+		archivePassword = getpass('password: ')
 filenames = archive7z.getnames()
 
-sys.stdout.write('\n')
+stdout.write('\n')
 ch = ''
 s = ''
+newFilename = ''
 matches = []
-while ch != '\033':
+while 1 == 1:
 	ch = getch().decode("utf-8")
 	if ch == '\n' or ch == '\r':
-		for i in range(10):
-			sys.stdout.write("\n")
 		matches = textsContain(s, filenames)
-		filename = matches[0]
-		print(filename)
-		for fname, bio in archive7z.read([filename]).items():
-			result = bio.read().decode("utf-8").rstrip()
-			pyperclip.copy(result)
+		if len(matches) > 0:
+			clearScreen()
+			filename = matches[0]
+			print(filename)
+			for fname, bio in archive7z.read([filename]).items():
+				result = bio.read().decode("utf-8").rstrip()
+				pyperclip.copy(result)
+			break
+	elif ch == '\033':
+		clearScreen()
 		break
 	elif ch == '\b':
 		s = s[:-1]
+	elif ch == '/':
+		newFilename = s
+		s = ''
+		clearScreen()
+		break
 	else:
 		s = s + ch
 	matches = textsContain(s, filenames)
-	sys.stdout.write("{:40s}\n\n".format(s))
+	stdout.write("{:40s}\n\n".format(s))
 	for m in range(8):
 		if m < len(matches):
 			match = matches[m]
 		else:
 			match = ''
-		sys.stdout.write("{:40s}\n".format(match))
+		stdout.write("{:40s}\n".format(match))
 	for i in range(10):
-		sys.stdout.write("\033[F")
+		stdout.write("\033[F")
+
+while newFilename != '':
+	ch = getch().decode("utf-8")
+	if ch == '\n' or ch == '\r':
+		newFilepath = Path('~/' + newFilename).expanduser()
+		with open(newFilepath, 'w') as newFile:
+			newFile.write(s)
+		archive7z.close()
+		# make a backup
+		from shutil import copyfile
+		from datetime import datetime
+		dtstring = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+		copyfile(archiveFP, str(archiveFP.parent) + '/' + archiveFP.stem + '-' + dtstring + '.7z')
+		archive7z = SevenZipFile(archiveFP, mode='a', password=archivePassword)
+		# print(archive7z.needs_password())
+		archive7z.set_encrypted_header(True)
+		# print(archive7z.needs_password())
+		archive7z.write(newFilepath, arcname=newFilename)
+		stdout.write("{:40s}\n".format('')) # clear the password from the terminal
+		break
+	elif ch == '\b':
+		s = s[:-1]
+	elif ch == '\033':
+		break
+	else:
+		s = s + ch
+	stdout.write("{:40s}\n\033[F".format(s))
+
+archive7z.close()
