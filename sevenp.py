@@ -71,63 +71,55 @@ matches = []
 while 1 == 1:
 	ch = getch().decode("utf-8")
 	if ch == '\n' or ch == '\r':
-		matches = textsContain(s, filenames)
-		if len(matches) > 0:
-			clearScreen()
-			filename = matches[0]
-			print(filename)
-			for fname, bio in archive7z.read([filename]).items():
-				result = bio.read().decode("utf-8").rstrip()
-				pyperclip.copy(result)
+		if newFilename == '':
+			matches = textsContain(s, filenames)
+			if len(matches) > 0:
+				clearScreen()
+				filename = matches[0]
+				print(filename)
+				for fname, bio in archive7z.read([filename]).items():
+					result = bio.read().decode("utf-8").rstrip()
+					pyperclip.copy(result)
+				break
+			else:
+				newFilename = s
+				s = ''
+		else:
+			newFilepath = Path('~/' + newFilename).expanduser()
+			with open(newFilepath, 'w') as newFile:
+				newFile.write(s)
+			archive7z.close()
+			# make a backup
+			from shutil import copyfile
+			from datetime import datetime
+			dtstring = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+			copyfile(archiveFP, str(archiveFP.parent) + '/' + archiveFP.stem + '-' + dtstring + '.7z')
+			archive7z = SevenZipFile(archiveFP, mode='a', password=archivePassword)
+			archive7z.set_encrypted_header(True)
+			archive7z.write(newFilepath, arcname=newFilename)
+			newFilepath.unlink()
+			stdout.write("{:40s}\n".format('')) # clear the password from the terminal
 			break
 	elif ch == '\033':
 		clearScreen()
 		break
 	elif ch == '\b':
 		s = s[:-1]
-	elif ch == '/':
-		newFilename = s
-		s = ''
-		clearScreen()
-		break
 	else:
 		s = s + ch
-	matches = textsContain(s, filenames)
-	stdout.write("{:40s}\n\n".format(s))
-	for m in range(8):
-		if m < len(matches):
-			match = matches[m]
-		else:
-			match = ''
-		stdout.write("{:40s}\n".format(match))
-	for i in range(10):
+	stdout.write("{:40s}\n".format(s))
+	if newFilename == '':
+		stdout.write("\n")
+		matches = textsContain(s, filenames)
+		for m in range(8):
+			if m < len(matches):
+				match = matches[m]
+			else:
+				match = ''
+			stdout.write("{:40s}\n".format(match))
+		for i in range(10):
+			stdout.write("\033[F")
+	else:
 		stdout.write("\033[F")
-
-while newFilename != '':
-	ch = getch().decode("utf-8")
-	if ch == '\n' or ch == '\r':
-		newFilepath = Path('~/' + newFilename).expanduser()
-		with open(newFilepath, 'w') as newFile:
-			newFile.write(s)
-		archive7z.close()
-		# make a backup
-		from shutil import copyfile
-		from datetime import datetime
-		dtstring = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-		copyfile(archiveFP, str(archiveFP.parent) + '/' + archiveFP.stem + '-' + dtstring + '.7z')
-		archive7z = SevenZipFile(archiveFP, mode='a', password=archivePassword)
-		# print(archive7z.needs_password())
-		archive7z.set_encrypted_header(True)
-		# print(archive7z.needs_password())
-		archive7z.write(newFilepath, arcname=newFilename)
-		stdout.write("{:40s}\n".format('')) # clear the password from the terminal
-		break
-	elif ch == '\b':
-		s = s[:-1]
-	elif ch == '\033':
-		break
-	else:
-		s = s + ch
-	stdout.write("{:40s}\n\033[F".format(s))
 
 archive7z.close()
