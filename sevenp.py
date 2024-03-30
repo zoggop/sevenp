@@ -99,6 +99,7 @@ while 1 == 1:
 			archive7z.write(newFilepath, arcname=newFilename)
 			newFilepath.unlink()
 			stdout.write("{:40s}\n".format('')) # clear the password from the terminal
+			pyperclip.copy(s)
 			break
 	elif ch == '\033':
 		clearScreen()
