@@ -1,7 +1,6 @@
 from sys import argv, stdin, stdout
 from pathlib import Path
 from py7zr import SevenZipFile
-from getpass import getpass
 import pyperclip
 
 archiveFP = Path(argv[1]).expanduser()
@@ -53,17 +52,8 @@ class _GetchWindows:
 
 getch = _Getch()
 
-archivePassword = getpass('password: ')
+archivePassword = None
 archive7z = None
-while not archive7z:
-	try:
-		archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
-	except:
-		print('incorrect password')
-		archivePassword = getpass('password: ')
-filenames = archive7z.getnames()
-
-stdout.write('\n')
 ch = ''
 s = ''
 newFilename = ''
@@ -71,19 +61,23 @@ matches = []
 while 1 == 1:
 	ch = getch().decode("utf-8")
 	if ch == '\n' or ch == '\r':
-		if newFilename == '':
+		if not archive7z:
+			try:
+				archive7z = SevenZipFile(archiveFP, mode='r', password=s)
+			except:
+				archive7z = None
+			else:
+				filenames = archive7z.getnames()
+				archivePassword = s
+			finally:
+				s = ''
+		elif newFilename == '':
 			matches = textsContain(s, filenames)
 			if len(matches) > 0:
-				clearScreen()
 				filename = matches[0]
-				print(filename)
 				for fname, bio in archive7z.read([filename]).items():
 					result = bio.read().decode("utf-8").rstrip()
 					pyperclip.copy(result)
-				break
-			else:
-				newFilename = s
-				s = ''
 		else:
 			newFilepath = Path('~/' + newFilename).expanduser()
 			with open(newFilepath, 'w') as newFile:
@@ -100,16 +94,29 @@ while 1 == 1:
 			newFilepath.unlink()
 			stdout.write("{:40s}\n".format('')) # clear the password from the terminal
 			pyperclip.copy(s)
-			break
+			s = ''
+			newFilename = ''
+			archive7z.close()
+			archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
+			filenames = archive7z.getnames()
+	elif ch == '/' and archive7z:
+		newFilename = s
+		s = ''
 	elif ch == '\033':
 		clearScreen()
+		if archive7z:
+			archive7z.close()
 		break
 	elif ch == '\b':
 		s = s[:-1]
 	else:
 		s = s + ch
-	stdout.write("{:40s}\n".format(s))
-	if newFilename == '':
+	if archive7z:
+		stdout.write("{:40s}\n".format(s))
+	else:
+		mask = ''.ljust(len(s), '•')
+		stdout.write("{:40s}\n".format(mask))
+	if newFilename == '' and archive7z:
 		stdout.write("\n")
 		matches = textsContain(s, filenames)
 		for m in range(8):
@@ -122,5 +129,3 @@ while 1 == 1:
 			stdout.write("\033[F")
 	else:
 		stdout.write("\033[F")
-
-archive7z.close()
