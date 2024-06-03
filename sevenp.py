@@ -1,9 +1,11 @@
 from sys import argv, stdin, stdout
 from pathlib import Path
 from py7zr import SevenZipFile
-import pyperclip
+from pynput import keyboard
 
 archiveFP = Path(argv[1]).expanduser()
+strungOutput = ''
+l = None
 
 def textsContain(inp, texts):
 	outs = []
@@ -15,6 +17,28 @@ def textsContain(inp, texts):
 def clearScreen():
 	for i in range(10):
 		stdout.write("{:40s}\n".format(''))
+
+def typeStrungOutput():
+	kbControl = keyboard.Controller()
+	kbControl.type(strungOutput)
+
+def on_release(key):
+	if key == keyboard.Key.esc:
+		return False  # stop listener
+	try:
+		k = key.char  # single-char keys
+	except:
+		k = key.name  # other keys
+	if k == 'home':  # keys of interest
+		typeStrungOutput()
+		return False  # stop listener; remove this if want more keys
+
+def stringOutput(pw):
+	global strungOutput
+	strungOutput = pw
+	listener = keyboard.Listener(on_release=on_release)
+	listener.start()  # start to listen on a separate thread
+	listener.join()  # remove if main thread is polling self.keys
 
 class _Getch:
     """Gets a single character from standard input.  Does not echo to the
@@ -77,7 +101,7 @@ while 1 == 1:
 				filename = matches[0]
 				for fname, bio in archive7z.read([filename]).items():
 					result = bio.read().decode("utf-8").rstrip()
-					pyperclip.copy(result)
+					stringOutput(result)
 		else:
 			newFilepath = Path('~/' + newFilename).expanduser()
 			with open(newFilepath, 'w') as newFile:
@@ -93,7 +117,7 @@ while 1 == 1:
 			archive7z.write(newFilepath, arcname=newFilename)
 			newFilepath.unlink()
 			stdout.write("{:40s}\n".format('')) # clear the password from the terminal
-			pyperclip.copy(s)
+			stringOutput(s)
 			s = ''
 			newFilename = ''
 			archive7z.close()
