@@ -5,7 +5,6 @@ from pynput import keyboard
 
 archiveFP = Path(argv[1]).expanduser()
 strungOutput = ''
-l = None
 
 def textsContain(inp, texts):
 	outs = []
@@ -19,8 +18,10 @@ def clearScreen():
 		stdout.write("{:40s}\n".format(''))
 
 def typeStrungOutput():
+	global strungOutput
 	kbControl = keyboard.Controller()
 	kbControl.type(strungOutput)
+	strungOutput = ''
 
 def on_release(key):
 	if key == keyboard.Key.esc:
@@ -78,12 +79,16 @@ getch = _Getch()
 
 archivePassword = None
 archive7z = None
-ch = ''
+ch = None
 s = ''
 newFilename = ''
 matches = []
 while 1 == 1:
-	ch = getch().decode("utf-8")
+	chb = getch()
+	try:
+		ch = chb.decode("utf-8")
+	except:
+		ch = None
 	if ch == '\n' or ch == '\r':
 		if not archive7z:
 			try:
@@ -133,7 +138,7 @@ while 1 == 1:
 		break
 	elif ch == '\b':
 		s = s[:-1]
-	else:
+	elif ch:
 		s = s + ch
 	if archive7z:
 		stdout.write("{:40s}\n".format(s))
@@ -148,7 +153,10 @@ while 1 == 1:
 				match = matches[m]
 			else:
 				match = ''
-			stdout.write("{:40s}\n".format(match))
+			if m == 0:
+				stdout.write("• {:40s}\n".format(match))
+			else:
+				stdout.write("  {:40s}\n".format(match))
 		for i in range(10):
 			stdout.write("\033[F")
 	else:
