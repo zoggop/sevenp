@@ -170,10 +170,9 @@ while 1 == 1:
 			archive7z.set_encrypted_header(True)
 			archive7z.write(newFilepath, arcname=newFilename)
 			newFilepath.unlink()
-			stdout.write(stdout.write(''.ljust(cols))) # clear the password from the terminal
+			stdout.write(''.ljust(cols)) # clear the password from the terminal
 			stdout.write("\n")
-			stringOutput(s)
-			s = ''
+			s = newFilename
 			newFilename = ''
 			archive7z.close()
 			archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
