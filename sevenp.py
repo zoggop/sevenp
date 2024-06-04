@@ -36,13 +36,14 @@ def printListInColumns(theList, cols, lines):
 		return
 	c = 0
 	r = 0
+	llen = len(theList)
 	for i in range(cells):
 		ni = (c * lines) + r
-		if ni == 0:
+		if ni == 0 and llen > 0:
 			marker = '•'
 		else:
 			marker = ' '
-		if ni < len(theList):
+		if ni < llen:
 			s = theList[ni]
 		else:
 			s = ''
