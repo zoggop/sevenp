@@ -31,6 +31,7 @@ def printListInColumns(theList, cols, lines):
 		return
 	c = 0
 	r = 0
+	line = ''
 	llen = len(theList)
 	for i in range(cells):
 		ni = (c * lines) + r
@@ -42,14 +43,13 @@ def printListInColumns(theList, cols, lines):
 			s = theList[ni]
 		else:
 			s = ''
-		stdout.write("{} {}".format(marker, s).ljust(columnWidth))
+		line += "{} {}".format(marker, s).ljust(columnWidth)
 		c += 1
 		if c == columns:
 			c = 0
 			r += 1
-			stdout.write("\n")
-	# for i in range(lines):
-	# 	stdout.write("\033[F")
+			stdout.write("{}\n".format(line.ljust(cols)))
+			line = ''
 
 def clearScreen():
 	cols, lines = termColsLines()
