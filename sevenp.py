@@ -10,11 +10,6 @@ archiveFP = Path(argv[1]).expanduser()
 strungOutput = ''
 
 def textsContain(inp, texts):
-	# outs = []
-	# for text in texts:
-	# 	if inp in text:
-	# 		outs.append(text)
-	# return outs
 	return list(fuzzyfinder(inp, texts))
 
 def termColsLines():
@@ -122,12 +117,12 @@ class _GetchWindows:
         import msvcrt
         return msvcrt.getch()
 
-print(chr(27) + "[2J")
-
 getch = _Getch()
 
+print(chr(27) + "[2J")
+
 archivePassword = None
-archive7z = None
+filenames = None
 ch = None
 s = ''
 newFilename = ''
@@ -140,13 +135,14 @@ while 1 == 1:
 		ch = None
 	cols, lines = termColsLines()
 	if ch == '\n' or ch == '\r':
-		if not archive7z:
+		if not filenames:
 			try:
 				archive7z = SevenZipFile(archiveFP, mode='r', password=s)
 			except:
 				archive7z = None
 			else:
 				filenames = archive7z.getnames()
+				archive7z.close()
 				archivePassword = s
 			finally:
 				s = ''
@@ -154,14 +150,15 @@ while 1 == 1:
 			matches = textsContain(s, filenames)
 			if len(matches) > 0:
 				filename = matches[0]
+				archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
 				for fname, bio in archive7z.read([filename]).items():
 					result = bio.read().decode("utf-8").rstrip()
 					stringOutput(result)
+				archive7z.close()
 		else:
 			newFilepath = Path('~/' + newFilename).expanduser()
 			with open(newFilepath, 'w') as newFile:
 				newFile.write(s)
-			archive7z.close()
 			# make a backup
 			from shutil import copyfile
 			from datetime import datetime
@@ -178,26 +175,25 @@ while 1 == 1:
 			archive7z.close()
 			archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
 			filenames = archive7z.getnames()
-	elif ch == '/' and archive7z:
+			archive7z.close()
+	elif ch == '/' and filenames and newFilename == '':
 		newFilename = s
 		s = ''
 	elif ch == '\033':
 		clearScreen()
-		if archive7z:
-			archive7z.close()
 		break
 	elif ch == '\b':
 		s = s[:-1]
 	elif ch:
 		s = s + ch
-	if archive7z:
+	if filenames:
 		stdout.write(s.ljust(cols))
 		stdout.write("\n")
 	else:
 		mask = ''.ljust(len(s), '•')
 		stdout.write(mask.ljust(cols))
 		stdout.write("\n")
-	if newFilename == '' and archive7z:
+	if newFilename == '' and filenames:
 		matches = textsContain(s, filenames)
 		stdout.write("\n")
 		printListInColumns(matches, cols, lines-3)
