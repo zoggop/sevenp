@@ -48,8 +48,8 @@ def printListInColumns(theList, cols, lines):
 			c = 0
 			r += 1
 			stdout.write("\n")
-	for i in range(lines):
-		stdout.write("\033[F")
+	# for i in range(lines):
+	# 	stdout.write("\033[F")
 
 def clearScreen():
 	cols, lines = termColsLines()
@@ -119,21 +119,20 @@ class _GetchWindows:
 
 getch = _Getch()
 
-print(chr(27) + "[2J")
-
 archivePassword = None
 filenames = None
 ch = None
 s = ''
 newFilename = ''
 matches = []
-while 1 == 1:
+while 1:
 	chb = getch()
 	try:
 		ch = chb.decode("utf-8")
 	except:
 		ch = None
 	cols, lines = termColsLines()
+	spaceLine = ''.ljust(cols)
 	if ch == '\n' or ch == '\r':
 		if not filenames:
 			try:
@@ -144,6 +143,7 @@ while 1 == 1:
 				filenames = archive7z.getnames()
 				archive7z.close()
 				archivePassword = s
+				print(chr(27) + "[2J")
 			finally:
 				s = ''
 		elif newFilename == '':
@@ -168,8 +168,8 @@ while 1 == 1:
 			archive7z.set_encrypted_header(True)
 			archive7z.write(newFilepath, arcname=newFilename)
 			newFilepath.unlink()
-			stdout.write(''.ljust(cols)) # clear the password from the terminal
-			stdout.write("\n")
+			# stdout.write(''.ljust(cols)) # clear the password from the terminal
+			# stdout.write("\n")
 			s = newFilename
 			newFilename = ''
 			archive7z.close()
@@ -186,18 +186,25 @@ while 1 == 1:
 		s = s[:-1]
 	elif ch:
 		s = s + ch
+	# draw the terminal screen
+	stdout.write('\r')
 	if filenames:
 		stdout.write(s.ljust(cols))
-		stdout.write("\n")
+		stdout.write("\n\n")
 	else:
 		mask = ''.ljust(len(s), '•')
 		stdout.write(mask.ljust(cols))
-		stdout.write("\n")
 	if newFilename == '' and filenames:
 		matches = textsContain(s, filenames)
-		stdout.write("\n")
 		printListInColumns(matches, cols, lines-3)
-		stdout.write("\033[F")
-		stdout.write("\033[F")
-	else:
-		stdout.write("\033[F")
+	elif filenames:
+		for i in range(lines-3):
+			stdout.write(spaceLine)
+			stdout.write('\n')
+	if filenames:
+		for i in range(lines):
+			stdout.write("\033[F")
+	cursorString = '\r'
+	for i in range(len(s)):
+		cursorString += '\033[C'
+	stdout.write(cursorString)
