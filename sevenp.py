@@ -72,7 +72,7 @@ def on_release(key):
 		k = key.char  # single-char keys
 	except:
 		k = key.name  # other keys
-	if k == 'home':  # keys of interest
+	if k == 'shift':  # keys of interest
 		typeStrungOutput()
 		return False  # stop listener; remove this if want more keys
 
