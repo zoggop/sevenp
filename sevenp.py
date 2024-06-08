@@ -23,7 +23,7 @@ def printListInColumns(theList, cols, lines):
 		slen = len(s)
 		if slen > longest:
 			longest = slen
-	columnWidth = longest + 4
+	columnWidth = longest + 2
 	columns = floor(cols / columnWidth)
 	cells = columns * lines
 	emptyCell = "".ljust(columnWidth)
@@ -35,15 +35,15 @@ def printListInColumns(theList, cols, lines):
 	llen = len(theList)
 	for i in range(cells):
 		ni = (c * lines) + r
-		if ni == 0 and llen > 0:
-			marker = '•'
-		else:
-			marker = ' '
 		if ni < llen:
 			s = theList[ni]
 		else:
 			s = ''
-		line += "{} {}".format(marker, s).ljust(columnWidth)
+		if ni == 0 and llen > 0:
+			whitespace = ''.ljust(columnWidth - len(s))
+			line += "\033[4m{}\033[0m{}".format(s, whitespace)
+		else:
+			line += s.ljust(columnWidth)
 		c += 1
 		if c == columns:
 			c = 0
