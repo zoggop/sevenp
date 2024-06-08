@@ -5,6 +5,7 @@ from py7zr import SevenZipFile
 from pynput import keyboard
 from fuzzyfinder import fuzzyfinder
 from math import floor
+import pyperclip
 
 archiveFP = Path(argv[1]).expanduser()
 strungOutput = ''
@@ -153,7 +154,8 @@ while 1:
 				archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
 				for fname, bio in archive7z.read([filename]).items():
 					result = bio.read().decode("utf-8").rstrip()
-					stringOutput(result)
+					pyperclip.copy(result)
+					# stringOutput(result)
 				archive7z.close()
 		else:
 			newFilepath = Path('~/' + newFilename).expanduser()
