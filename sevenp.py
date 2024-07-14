@@ -5,7 +5,7 @@ from py7zr import SevenZipFile
 from pynput import keyboard
 from fuzzyfinder import fuzzyfinder
 from math import floor
-import pyperclip
+from pyperclip import copy as clipboardCopy
 
 archiveFP = Path(argv[1]).expanduser()
 strungOutput = ''
@@ -17,27 +17,39 @@ def termColsLines():
 	size = get_terminal_size()
 	return size.columns, size.lines
 
-def printListInColumns(theList, cols, lines):
+def datesByName(infos):
+	DbyN = {}
+	for info in infos:
+		DbyN[info.filename] = info.creationtime
+	return DbyN
+
+def printFilesInColumns(names, dbn, cols, lines):
 	longest = 0
-	for i in range(len(theList)):
-		s = theList[i]
+	showDate = False
+	for i in range(len(names)):
+		s = names[i]
 		slen = len(s)
 		if slen > longest:
 			longest = slen
 	columnWidth = longest + 2
 	columns = floor(cols / columnWidth)
 	cells = columns * lines
-	emptyCell = "".ljust(columnWidth)
 	if columns == 0:
 		return
+	if len(names) <= lines:
+		showDate = True
+		columns = 2
+		cells = lines * 2
 	c = 0
 	r = 0
 	line = ''
-	llen = len(theList)
+	llen = len(names)
 	for i in range(cells):
 		ni = (c * lines) + r
 		if ni < llen:
-			s = theList[ni]
+			s = names[ni]
+		elif showDate and c == 1 and r < llen:
+			s = dbn[names[r]].strftime("%d-%m-%Y %H:%M")
 		else:
 			s = ''
 		if ni == 0 and llen > 0:
@@ -111,17 +123,18 @@ class _GetchUnix:
         return ch
 
 class _GetchWindows:
-    def __init__(self):
-        import msvcrt
+	def __init__(self):
+		import msvcrt
 
-    def __call__(self):
-        import msvcrt
-        return msvcrt.getch()
+	def __call__(self):
+		import msvcrt
+		return msvcrt.getch()
 
 getch = _Getch()
 
 archivePassword = None
 filenames = None
+dbn = None
 ch = None
 s = ''
 newFilename = ''
@@ -142,6 +155,7 @@ while 1:
 				archive7z = None
 			else:
 				filenames = archive7z.getnames()
+				dbn = datesByName(archive7z.list())
 				archive7z.close()
 				archivePassword = s
 				print(chr(27) + "[2J")
@@ -154,7 +168,7 @@ while 1:
 				archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
 				for fname, bio in archive7z.read([filename]).items():
 					result = bio.read().decode("utf-8").rstrip()
-					pyperclip.copy(result)
+					clipboardCopy(result)
 					# stringOutput(result)
 				archive7z.close()
 		else:
@@ -170,24 +184,28 @@ while 1:
 			archive7z.set_encrypted_header(True)
 			archive7z.write(newFilepath, arcname=newFilename)
 			newFilepath.unlink()
-			# stdout.write(''.ljust(cols)) # clear the password from the terminal
-			# stdout.write("\n")
 			s = newFilename
 			newFilename = ''
 			archive7z.close()
 			archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
 			filenames = archive7z.getnames()
+			dbn = datesByName(archive7z.list())
+			print('\n\n\n', archive7z.list(filenames[0]), '\n\n\n')
 			archive7z.close()
 	elif ch == '/' and filenames and newFilename == '':
 		newFilename = s
 		s = ''
 	elif ch == '\033':
-		clearScreen()
-		break
+		if newFilename == '':
+			clearScreen()
+			break
+		else:
+			s = newFilename
+			newFilename = ''
 	elif ch == '\b':
 		s = s[:-1]
 	elif ch:
-		s = s + ch
+		s += ch
 	# draw the terminal screen
 	stdout.write('\r')
 	if filenames:
@@ -198,12 +216,23 @@ while 1:
 		stdout.write(mask.ljust(cols))
 	if newFilename == '' and filenames:
 		matches = textsContain(s, filenames)
-		printListInColumns(matches, cols, lines-3)
+		printFilesInColumns(matches, dbn, cols, lines-4)
 	elif filenames:
-		for i in range(lines-3):
+		digits = sum(c.isdigit() for c in s)
+		uppers = sum(c.isupper() for c in s)
+		specials = len(s) - sum(c.isalnum() for c in s)
+		stdout.write("{} chars, {} numbers, {} upper case, {} specials".format(len(s), digits, uppers, specials).ljust(cols))
+		for i in range(lines-5):
 			stdout.write(spaceLine)
 			stdout.write('\n')
 	if filenames:
+		stdout.write('\n')
+		statusString = ''
+		if newFilename == '':
+			statusString = 'ENTER: Copy contents of top file. /: New file with input as filename. ESC: Exit.'
+		else:
+			statusString = 'ENTER: Write input to new file and add to archive. ESC: Cancel.'
+		stdout.write(statusString.ljust(cols))
 		for i in range(lines):
 			stdout.write("\033[F")
 	cursorString = '\r'
