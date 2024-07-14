@@ -190,7 +190,6 @@ while 1:
 			archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
 			filenames = archive7z.getnames()
 			dbn = datesByName(archive7z.list())
-			print('\n\n\n', archive7z.list(filenames[0]), '\n\n\n')
 			archive7z.close()
 	elif ch == '/' and filenames and newFilename == '':
 		newFilename = s
@@ -221,7 +220,7 @@ while 1:
 		digits = sum(c.isdigit() for c in s)
 		uppers = sum(c.isupper() for c in s)
 		specials = len(s) - sum(c.isalnum() for c in s)
-		stdout.write("{} chars, {} numbers, {} upper case, {} specials".format(len(s), digits, uppers, specials).ljust(cols))
+		stdout.write("{} characters, {} numbers, {} upper case, {} specials".format(len(s), digits, uppers, specials).ljust(cols))
 		for i in range(lines-5):
 			stdout.write(spaceLine)
 			stdout.write('\n')
