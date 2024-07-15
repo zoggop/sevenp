@@ -24,9 +24,9 @@ def datesByName(infos):
 	return DbyN
 
 def printFilesInColumns(names, dbn, cols, lines, selectedMatch, matchCopied):
-	bg = 103
+	bg, fg = 45, 97
 	if matchCopied:
-		bg = 102
+		bg, fg = 102, 30
 	longest = 0
 	showDate = False
 	for i in range(len(names)):
@@ -52,12 +52,16 @@ def printFilesInColumns(names, dbn, cols, lines, selectedMatch, matchCopied):
 		if ni < llen:
 			s = names[ni]
 		elif showDate and c == 1 and r < llen:
-			s = dbn[names[r]].strftime("%d-%m-%Y %H:%M")
+			s = dbn[names[r]].astimezone().strftime("%d/%m/%Y %H:%M:%S")
 		else:
 			s = ''
 		if (ni == selectedMatch and llen > 0) or (showDate and c == 1 and r == selectedMatch):
 			whitespace = ''.ljust(columnWidth - len(s))
-			line += "\033[4;30;{}m{}\033[0m{}".format(bg, s, whitespace)
+			if showDate and c == 0:
+				end = ''
+			else:
+				end = '\033[0m'
+			line += "\033[{};{}m{}{}{}".format(bg, fg, s, end, whitespace)
 		else:
 			line += s.ljust(columnWidth)
 		c += 1
@@ -156,6 +160,7 @@ while 1:
 	except:
 		ch = None
 	cols, lines = termColsLines()
+	linesForFiles = lines - 4
 	spaceLine = ''.ljust(cols)
 	if ch == '\n' or ch == '\r':
 		if not filenames:
@@ -212,9 +217,11 @@ while 1:
 			selectedMatch = (selectedMatch - 1) % min(len(matches), displayedMatches)
 		matchCopied = False
 	elif ch == 'K' and prevChb == b'\xe0': # left arrow
-		nothing = 0
+		if len(matches) > linesForFiles:
+			selectedMatch = (selectedMatch - (linesForFiles)) % min(len(matches) + 1, displayedMatches)
 	elif ch == 'M' and prevChb == b'\xe0': # right arrow
-		nothing = 0
+		if len(matches) > linesForFiles:
+			selectedMatch = (selectedMatch + (linesForFiles)) % min(len(matches) + 1, displayedMatches)
 	elif ch == '/' and filenames and newFilename == '':
 		newFilename = s
 		s = ''
@@ -245,13 +252,13 @@ while 1:
 		stdout.write(mask.ljust(cols))
 	if newFilename == '' and filenames:
 		matches = textsContain(s, filenames)
-		displayedMatches = printFilesInColumns(matches, dbn, cols, lines-4, selectedMatch, matchCopied)
+		displayedMatches = printFilesInColumns(matches, dbn, cols, linesForFiles, selectedMatch, matchCopied)
 	elif filenames:
 		digits = sum(c.isdigit() for c in s)
 		uppers = sum(c.isupper() for c in s)
 		specials = len(s) - sum(c.isalnum() for c in s)
 		stdout.write("{} characters, {} numbers, {} upper case, {} specials".format(len(s), digits, uppers, specials).ljust(cols))
-		for i in range(lines-5):
+		for i in range(linesForFiles - 1):
 			stdout.write(spaceLine)
 			stdout.write('\n')
 	if filenames:
