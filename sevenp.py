@@ -23,7 +23,10 @@ def datesByName(infos):
 		DbyN[info.filename] = info.creationtime
 	return DbyN
 
-def printFilesInColumns(names, dbn, cols, lines):
+def printFilesInColumns(names, dbn, cols, lines, selectedMatch, matchCopied):
+	bg = 103
+	if matchCopied:
+		bg = 102
 	longest = 0
 	showDate = False
 	for i in range(len(names)):
@@ -52,9 +55,9 @@ def printFilesInColumns(names, dbn, cols, lines):
 			s = dbn[names[r]].strftime("%d-%m-%Y %H:%M")
 		else:
 			s = ''
-		if ni == 0 and llen > 0:
+		if (ni == selectedMatch and llen > 0) or (showDate and c == 1 and r == selectedMatch):
 			whitespace = ''.ljust(columnWidth - len(s))
-			line += "\033[4m{}\033[0m{}".format(s, whitespace)
+			line += "\033[4;30;{}m{}\033[0m{}".format(bg, s, whitespace)
 		else:
 			line += s.ljust(columnWidth)
 		c += 1
@@ -63,6 +66,7 @@ def printFilesInColumns(names, dbn, cols, lines):
 			r += 1
 			stdout.write("{}\n".format(line.ljust(cols)))
 			line = ''
+	return cells
 
 def clearScreen():
 	cols, lines = termColsLines()
@@ -136,10 +140,16 @@ archivePassword = None
 filenames = None
 dbn = None
 ch = None
+chb = None
 s = ''
 newFilename = ''
 matches = []
+selectedMatch = 0
+prevChb = None
+matchCopied = False
+displayedMatches = 1
 while 1:
+	prevChb = chb
 	chb = getch()
 	try:
 		ch = chb.decode("utf-8")
@@ -164,14 +174,16 @@ while 1:
 		elif newFilename == '':
 			matches = textsContain(s, filenames)
 			if len(matches) > 0:
-				filename = matches[0]
+				filename = matches[selectedMatch]
 				archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
 				for fname, bio in archive7z.read([filename]).items():
 					result = bio.read().decode("utf-8").rstrip()
 					clipboardCopy(result)
 					# stringOutput(result)
+					matchCopied = True
 				archive7z.close()
 		else:
+			selectedMatch = 0
 			newFilepath = Path('~/' + newFilename).expanduser()
 			with open(newFilepath, 'w') as newFile:
 				newFile.write(s)
@@ -191,9 +203,22 @@ while 1:
 			filenames = archive7z.getnames()
 			dbn = datesByName(archive7z.list())
 			archive7z.close()
+	elif ch == 'P' and prevChb == b'\xe0': # down arrow
+		if len(matches) > 1:
+			selectedMatch = (selectedMatch + 1) % min(len(matches), displayedMatches)
+		matchCopied = False
+	elif ch == 'H' and prevChb == b'\xe0': # up arrow
+		if len(matches) > 1:
+			selectedMatch = (selectedMatch - 1) % min(len(matches), displayedMatches)
+		matchCopied = False
+	elif ch == 'K' and prevChb == b'\xe0': # left arrow
+		nothing = 0
+	elif ch == 'M' and prevChb == b'\xe0': # right arrow
+		nothing = 0
 	elif ch == '/' and filenames and newFilename == '':
 		newFilename = s
 		s = ''
+		matchCopied = False
 	elif ch == '\033':
 		if newFilename == '':
 			clearScreen()
@@ -201,10 +226,15 @@ while 1:
 		else:
 			s = newFilename
 			newFilename = ''
+			matchCopied = False
 	elif ch == '\b':
 		s = s[:-1]
+		selectedMatch = 0
+		matchCopied = False
 	elif ch:
 		s += ch
+		selectedMatch = 0
+		matchCopied = False
 	# draw the terminal screen
 	stdout.write('\r')
 	if filenames:
@@ -215,7 +245,7 @@ while 1:
 		stdout.write(mask.ljust(cols))
 	if newFilename == '' and filenames:
 		matches = textsContain(s, filenames)
-		printFilesInColumns(matches, dbn, cols, lines-4)
+		displayedMatches = printFilesInColumns(matches, dbn, cols, lines-4, selectedMatch, matchCopied)
 	elif filenames:
 		digits = sum(c.isdigit() for c in s)
 		uppers = sum(c.isupper() for c in s)
@@ -228,7 +258,7 @@ while 1:
 		stdout.write('\n')
 		statusString = ''
 		if newFilename == '':
-			statusString = 'ENTER: Copy contents of top file. /: New file with input as filename. ESC: Exit.'
+			statusString = 'ENTER: Copy selected contents. /: New file with input as filename. ESC: Exit.'
 		else:
 			statusString = 'ENTER: Write input to new file and add to archive. ESC: Cancel.'
 		stdout.write(statusString.ljust(cols))
