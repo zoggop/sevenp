@@ -1,14 +1,14 @@
 from sys import argv, stdin, stdout
 from os import get_terminal_size
 from pathlib import Path
-from py7zr import SevenZipFile
 from pynput import keyboard
 from fuzzyfinder import fuzzyfinder
 from math import floor
-from pyperclip import copy as clipboardCopy
 
 archiveFP = Path(argv[1]).expanduser()
 strungOutput = ''
+
+ANSI_END = '\033[0m'
 
 def textsContain(inp, texts):
 	return list(fuzzyfinder(inp, texts))
@@ -60,7 +60,7 @@ def printFilesInColumns(names, dbn, cols, lines, selectedMatch, matchCopied):
 			if showDate and c == 0:
 				end = ''
 			else:
-				end = '\033[0m'
+				end = ANSI_END
 			line += "\033[{};{}m{}{}{}".format(bg, fg, s, end, whitespace)
 		else:
 			line += s.ljust(columnWidth)
@@ -82,27 +82,23 @@ def clearScreen():
 
 def typeStrungOutput():
 	global strungOutput
+	if strungOutput == '':
+		return
 	kbControl = keyboard.Controller()
 	kbControl.type(strungOutput)
 	strungOutput = ''
 
 def on_release(key):
-	if key == keyboard.Key.esc:
-		return False  # stop listener
 	try:
 		k = key.char  # single-char keys
 	except:
 		k = key.name  # other keys
-	if k == 'shift':  # keys of interest
+	if k == 'shift' or k == 'shift_r':  # keys of interest
 		typeStrungOutput()
-		return False  # stop listener; remove this if want more keys
 
 def stringOutput(pw):
 	global strungOutput
 	strungOutput = pw
-	listener = keyboard.Listener(on_release=on_release)
-	listener.start()  # start to listen on a separate thread
-	listener.join()  # remove if main thread is polling self.keys
 
 class _Getch:
     """Gets a single character from standard input.  Does not echo to the
@@ -140,6 +136,10 @@ class _GetchWindows:
 
 getch = _Getch()
 
+listener = keyboard.Listener(
+	on_release=on_release)
+listener.start()
+
 archivePassword = None
 filenames = None
 dbn = None
@@ -152,6 +152,7 @@ selectedMatch = 0
 prevChb = None
 matchCopied = False
 displayedMatches = 1
+confirmedNewFile = False
 while 1:
 	prevChb = chb
 	chb = getch()
@@ -164,6 +165,7 @@ while 1:
 	spaceLine = ''.ljust(cols)
 	if ch == '\n' or ch == '\r':
 		if not filenames:
+			from py7zr import SevenZipFile
 			try:
 				archive7z = SevenZipFile(archiveFP, mode='r', password=s)
 			except:
@@ -183,11 +185,10 @@ while 1:
 				archive7z = SevenZipFile(archiveFP, mode='r', password=archivePassword)
 				for fname, bio in archive7z.read([filename]).items():
 					result = bio.read().decode("utf-8").rstrip()
-					clipboardCopy(result)
-					# stringOutput(result)
+					stringOutput(result)
 					matchCopied = True
 				archive7z.close()
-		else:
+		elif confirmedNewFile:
 			selectedMatch = 0
 			newFilepath = Path('~/' + newFilename).expanduser()
 			with open(newFilepath, 'w') as newFile:
@@ -208,6 +209,9 @@ while 1:
 			filenames = archive7z.getnames()
 			dbn = datesByName(archive7z.list())
 			archive7z.close()
+		else:
+			stringOutput(s)
+			confirmedNewFile = True
 	elif ch == 'P' and prevChb == b'\xe0': # down arrow
 		if len(matches) > 1:
 			selectedMatch = (selectedMatch + 1) % min(len(matches), displayedMatches)
@@ -238,14 +242,19 @@ while 1:
 		s = s[:-1]
 		selectedMatch = 0
 		matchCopied = False
+		confirmedNewFile = False
 	elif ch:
 		s += ch
 		selectedMatch = 0
 		matchCopied = False
+		confirmedNewFile = False
 	# draw the terminal screen
 	stdout.write('\r')
 	if filenames:
-		stdout.write(s.ljust(cols))
+		if newFilename and confirmedNewFile:
+			stdout.write("\033[102;30m{}{}".format(s, ANSI_END).ljust(cols))
+		else:
+			stdout.write(s.ljust(cols))
 		stdout.write("\n\n")
 	else:
 		mask = ''.ljust(len(s), '•')
@@ -265,9 +274,17 @@ while 1:
 		stdout.write('\n')
 		statusString = ''
 		if newFilename == '':
-			statusString = 'ENTER: Copy selected contents. /: New file with input as filename. ESC: Exit.'
+			if strungOutput == '':
+				statusString = 'ENTER: Buffer selected.'
+			else:
+				statusString = 'SHIFT: Output buffer. ENTER: Buffer selected.'
+			if len(s) > 0:
+				statusString += ' /: New file.'
+			statusString += ' ESC: Exit.'
+		elif confirmedNewFile:
+			statusString = 'SHIFT: Output buffer. ENTER: Write input to file. ESC: Cancel.'
 		else:
-			statusString = 'ENTER: Write input to new file and add to archive. ESC: Cancel.'
+			statusString = 'ENTER: Buffer input. ESC: Cancel.'
 		stdout.write(statusString.ljust(cols))
 		for i in range(lines):
 			stdout.write("\033[F")
