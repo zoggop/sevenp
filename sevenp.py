@@ -1,3 +1,4 @@
+from datetime import datetime
 from sys import argv, stdin, stdout
 from os import get_terminal_size
 from pathlib import Path
@@ -43,12 +44,16 @@ def printFilesInColumns(names, dbn, cols, lines, selectedMatch, matchCopied):
 		showDate = True
 		columns = 2
 		cells = lines * 2
+	offset = 0
+	if selectedMatch >= cells:
+		offset = floor(selectedMatch / cells) * cells
+	# print(selectedMatch, cells, offset)
 	c = 0
 	r = 0
 	line = ''
 	llen = len(names)
 	for i in range(cells):
-		ni = (c * lines) + r
+		ni = (c * lines) + r + offset
 		if ni < llen:
 			s = names[ni]
 		elif showDate and c == 1 and r < llen:
@@ -153,8 +158,14 @@ prevChb = None
 matchCopied = False
 displayedMatches = 1
 confirmedNewFile = False
+prevDT = datetime.now()
 while 1:
 	prevChb = chb
+	if not confirmedNewFile and (datetime.now() - prevDT).total_seconds() > 60:
+		# exit if it's been a minute, for security
+		clearScreen()
+		exit()
+	prevDT = datetime.now()
 	chb = getch()
 	try:
 		ch = chb.decode("utf-8")
@@ -209,23 +220,38 @@ while 1:
 			filenames = archive7z.getnames()
 			dbn = datesByName(archive7z.list())
 			archive7z.close()
+			confirmedNewFile = False
 		else:
 			stringOutput(s)
 			confirmedNewFile = True
 	elif ch == 'P' and prevChb == b'\xe0': # down arrow
 		if len(matches) > 1:
-			selectedMatch = (selectedMatch + 1) % min(len(matches), displayedMatches)
-		matchCopied = False
+			selectedMatch = min(len(matches)-1, selectedMatch + 1)
+			matchCopied = False
 	elif ch == 'H' and prevChb == b'\xe0': # up arrow
 		if len(matches) > 1:
-			selectedMatch = (selectedMatch - 1) % min(len(matches), displayedMatches)
-		matchCopied = False
+			selectedMatch = max(0, selectedMatch - 1)
+			matchCopied = False
 	elif ch == 'K' and prevChb == b'\xe0': # left arrow
 		if len(matches) > linesForFiles:
-			selectedMatch = (selectedMatch - (linesForFiles)) % min(len(matches) + 1, displayedMatches)
+			if selectedMatch - linesForFiles >= 0:
+				selectedMatch -= linesForFiles
+				matchCopied = False
 	elif ch == 'M' and prevChb == b'\xe0': # right arrow
 		if len(matches) > linesForFiles:
-			selectedMatch = (selectedMatch + (linesForFiles)) % min(len(matches) + 1, displayedMatches)
+			if selectedMatch + linesForFiles < len(matches):
+				selectedMatch += linesForFiles
+				matchCopied = False
+	elif ch == 'Q' and prevChb == b'\xe0': # page down
+		if len(matches) - 1 > displayedMatches + selectedMatch:
+			selectedMatch += displayedMatches
+			matchCopied = False
+		elif len(matches) - 1 > selectedMatch:
+			selectedMatch = len(matches) - 1
+	elif ch == 'I' and prevChb == b'\xe0': # page up
+		if selectedMatch > 0:
+			selectedMatch = max(0, selectedMatch - displayedMatches)
+			matchCopied = False
 	elif ch == '/' and filenames and newFilename == '':
 		newFilename = s
 		s = ''
@@ -233,7 +259,7 @@ while 1:
 	elif ch == '\033':
 		if newFilename == '':
 			clearScreen()
-			break
+			exit()
 		else:
 			s = newFilename
 			newFilename = ''
